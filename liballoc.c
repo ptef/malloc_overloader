@@ -5,7 +5,7 @@
 #include <stdint.h>
 //#include <gnu/libc-version.h>
 
-//__asm__(".symver malloc,malloc@@GLIBC_2.34");
+//__asm__(".symver malloc,malloc@@GLIBC_2.28");
 //__asm__(".symver __libc_malloc,__libc_malloc@@GLIBC_2.4");
 
 static void *(*orig_malloc)(size_t) = NULL;
@@ -23,7 +23,7 @@ ssize_t write(int fd, const void *buf, size_t count);
  * request heap allocations, we use a temporary buffer to return to those
  * callers.
  */
-#define MAX_TMP_BUFFER 1024 * 1
+#define MAX_TMP_BUFFER 1024 * 5
 
 char tmp_buffer[MAX_TMP_BUFFER];
 unsigned short tmp_allocs = 0;
@@ -136,10 +136,10 @@ void* malloc(size_t s)
 			void *tmp_ptr = &tmp_buffer[tmp_pos];
 			tmp_pos += s;
 			tmp_allocs++;
-			//write(1, "LD_PRELOAD: return1()\n", 17);
+			write(1, "LD_PRELOAD: return1()\n", 22);
 			return tmp_ptr;
 		} else {
-			write(2, "LD_PRELOAD: max temporary allocations reached, please increase\n", 58);
+			write(2, "LD_PRELOAD: max temporary allocations reached, please increase\n", 63);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -154,9 +154,9 @@ void* malloc(size_t s)
             allocs[alloc_idx].addr = (uintptr_t)ptr;
             allocs[alloc_idx].size = s;
             allocs[alloc_idx].is_fred = 0;
-			//initialization_block = 1;
-			//fprintf(stdout, "LD_PRELOAD: allocs[%ld].addr = %p\n", alloc_idx, (void *)allocs[alloc_idx].addr);
-			//initialization_block = 0;
+			initialization_block = 1;
+			fprintf(stdout, "LD_PRELOAD: allocs[%ld].addr = %p\n", alloc_idx, (void *)allocs[alloc_idx].addr);
+			initialization_block = 0;
             alloc_idx++;
         } else {
 			//initialization_block = 1;
@@ -171,7 +171,7 @@ void* malloc(size_t s)
 
 void *calloc(size_t nmemb, size_t size)
 {
-	//write(1, "LD_PRELOAD: calloc\n", 14);
+	write(1, "LD_PRELOAD: calloc\n", 19);
     if (orig_malloc == NULL) {
         void *ptr = malloc(nmemb*size);
         if (ptr)
@@ -188,7 +188,7 @@ void *realloc(void *ptr, size_t size)
 {
 	if (orig_malloc == NULL) {
 		void *nptr = malloc(size);
-		//write(1, "LD_PRELOAD: realloc1\n", 16);
+		//write(1, "LD_PRELOAD: realloc1\n", 21);
 		if (nptr && ptr) {
 			memmove(nptr, ptr, size);
 			free(ptr);
@@ -197,14 +197,14 @@ void *realloc(void *ptr, size_t size)
 	}
 
 	void *nptr = orig_realloc(ptr, size);
-	//write(1, "LD_PRELOAD: realloc2\n", 16);
+	//write(1, "LD_PRELOAD: realloc2\n", 21);
 	return nptr;
 }
 
 
 void *memalign(size_t blocksize, size_t bytes)
 {
-	//write(1, "LD_PRELOAD: memalign\n", 16);
+	write(1, "LD_PRELOAD: memalign\n", 21);
 	void *ptr = orig_memalign(blocksize, bytes);
 	return ptr;
 }
@@ -233,7 +233,7 @@ void free(void *ptr)
 		return;
 	}
 
-	//fprintf(stdout, "LD_PRELOAD: free(ptr) = %p\n", ptr);
+	fprintf(stdout, "LD_PRELOAD: free(ptr) = %p\n", ptr);
 	for (size_t i=0; i<alloc_idx; i++) {
 		if (ptr == (void *)allocs[i].addr) {
 			/*
@@ -254,3 +254,4 @@ void free(void *ptr)
 
 	return orig_free(ptr);
 }
+
